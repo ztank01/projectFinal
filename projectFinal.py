@@ -128,7 +128,7 @@ from sklearn.linear_model import LinearRegression
 model = LinearRegression()
 model.fit(processed_train_set_val, train_set_labels)
 print('\n____________________________________ LinearRegression ____________________________________')
-print('Learned parameters: ', model.coef_)
+print('Learned parameters: \n', model.coef_)
 
 # 5.1.2 Compute R2 score and root mean squared error
 def r2score_and_rmse(model, train_data, labels): 
@@ -155,11 +155,11 @@ def store_model(model, model_name = ""):
     # INFO: can store only ONE object in a file
     if model_name == "": 
         model_name = type(model).__name__
-    joblib.dump(model,'saved_objects/' + model_name + '_model.pkl')
+    joblib.dump(model,'projectFinal/' + model_name + '_model.pkl')
 def load_model(model_name):
     # Load objects into memory
     #del model
-    model = joblib.load('saved_objects/' + model_name + '_model.pkl')
+    model = joblib.load('projectFinal/' + model_name + '_model.pkl')
     #print(model)
     return model
 store_model(model)
@@ -223,19 +223,25 @@ print("Predictions: ", model.predict(train_set_poly_added[0:9]).round(decimals=1
 print("Labels:      ", list(train_set_labels[0:9]))
 
 
+# 5.5 Try SVR model
+from sklearn.svm import SVR
+model = SVR(C=1.0, epsilon=0.2)
+model.fit(processed_train_set_val, train_set_labels)# 5.4.2 Compute R2 score and root mean squared error
+print('\n____________________________________ SVR ____________________________________')
+r2score, rmse = r2score_and_rmse(model, processed_train_set_val, train_set_labels)
+print('R2 score (on training data, best=1):', r2score)
+print("Root Mean Square Error: ", rmse.round(decimals=1))
+# 5.4.3 Predict labels for some training instances
+print("Predictions: ", model.predict(processed_train_set_val[0:9]).round(decimals=1))
+print("Labels:      ", list(train_set_labels[0:9]))
+
+
 # 5.5 Evaluate with K-fold cross validation 
 from sklearn.model_selection import cross_val_score
-#from sklearn.model_selection import ShuffleSplit, StratifiedKFold, StratifiedShuffleSplit
-#from sklearn.model_selection import cross_val_predict
-
-#cv1 = ShuffleSplit(n_splits=10, test_size=0.2, random_state=42); 
-#cv2 = StratifiedKFold(n_splits=10, random_state=42); 
-#cv3 = StratifiedShuffleSplit(n_splits=10, test_size=0.2, random_state=42); 
 print('\n____________________________________ K-fold cross validation ____________________________________')
 
-run_evaluation =0
+run_evaluation =1
 if run_evaluation:
- 
 
     # Evaluate DecisionTreeRegressor
     model_name = "DecisionTreeRegressor" 
@@ -247,6 +253,14 @@ if run_evaluation:
 
     # Evaluate RandomForestRegressor
     model_name = "RandomForestRegressor" 
+    model = SVR(C=1.0, epsilon=0.2)
+    nmse_scores = cross_val_score(model, processed_train_set_val, train_set_labels, cv=5, scoring='neg_mean_squared_error')
+    rmse_scores = np.sqrt(-nmse_scores)
+    joblib.dump(rmse_scores,'saveProjectFinal/' + model_name + '_rmse.pkl')
+    print("SVR rmse: ", rmse_scores.round(decimals=1))
+    
+     # Evaluate RandomForestRegressor
+    model_name = "SVR" 
     model = RandomForestRegressor()
     nmse_scores = cross_val_score(model, processed_train_set_val, train_set_labels, cv=5, scoring='neg_mean_squared_error')
     rmse_scores = np.sqrt(-nmse_scores)
@@ -264,3 +278,7 @@ else:
     print("RandomForestRegressor rmse: ", rmse_scores.round(decimals=1))
     print("Avg. rmse: ", mean(rmse_scores.round(decimals=1)),'\n')
 
+    model_name = "SVR" 
+    rmse_scores = joblib.load('saveProjectFinal/' + model_name + '_rmse.pkl')
+    print("RandomForestRegressor rmse: ", rmse_scores.round(decimals=1))
+    print("Avg. rmse: ", mean(rmse_scores.round(decimals=1)),'\n')
