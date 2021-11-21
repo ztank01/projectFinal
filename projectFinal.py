@@ -282,3 +282,79 @@ else:
     rmse_scores = joblib.load('saveProjectFinal/' + model_name + '_rmse.pkl')
     print("RandomForestRegressor rmse: ", rmse_scores.round(decimals=1))
     print("Avg. rmse: ", mean(rmse_scores.round(decimals=1)),'\n')
+#%% Fine-tune RandomForestReg model
+print('\n__________________ Fine-tune models __________________ ')
+def print_search_result(search, model_name = ""): 
+    print("\n====== Fine-tune " + model_name +" ======")
+    print('Best hyperparameter combination: ',search.best_params_)
+    print('Best rmse: ', np.sqrt(-search.best_score_))  
+    print('Best estimator: ', search.best_estimator_)  
+    print('Performance of hyperparameter combinations:')
+    cv_results = search.cv_results_
+    for (mean_score, params) in zip(cv_results["mean_test_score"], cv_results["params"]):
+        print('rmse =', np.sqrt(-mean_score).round(decimals=1), params) 
+
+from sklearn.model_selection import GridSearchCV
+    
+run_new_search = 1      
+if run_new_search:
+    # 6.1.1 Fine-tune RandomForestRegressor
+    model = RandomForestRegressor(random_state=42)
+    param_grid = [
+        # try 12 (3×4) combinations of hyperparameters (bootstrap=True: drawing samples with replacement)
+        {'bootstrap': [True], 'n_estimators': [5, 3500], 'max_features': [26,'auto']},
+        # then try 6 (2×3) combinations with bootstrap set as False
+        {'bootstrap': [False], 'n_estimators': [5, 3500], 'max_features': [26,'auto']} ]
+        # Train across 5 folds, hence a total of (12+6)*5=90 rounds of training 
+    grid_search = GridSearchCV(model, param_grid, cv=5, scoring='neg_mean_squared_error', return_train_score=True)
+    grid_search.fit(processed_train_set_val, train_set_labels)
+    joblib.dump(grid_search,'saveObject/RandomForestRegressor_gridsearch.pkl')
+    print_search_result(grid_search, model_name = "RandomForestRegressor")      
+else:
+    # Load grid_search
+    grid_search = joblib.load('saveObject/RandomForestRegressor_gridsearch.pkl')
+    print_search_result(grid_search, model_name = "RandomForestRegressor")
+best_model = grid_search.best_estimator_
+processed_test_set = full_pipeline.transform(test_set)  
+r2score, rmse = r2score_and_rmse(best_model, processed_test_set, test_set_labels)
+print('R2 score (on test data, best=1):', r2score)
+print("Root Mean Square Error: ", rmse.round(decimals=1))
+#%% In[7]: ANALYZE AND TEST YOUR SOLUTION
+# NOTE: solution is the best model from the previous steps. 
+
+# 7.1 Pick the best model - the SOLUTION
+# Pick Random forest
+search = joblib.load('saveObject/RandomForestRegressor_gridsearch.pkl')
+best_model = search.best_estimator_
+# Pick Linear regression
+#best_model = joblib.load('saved_objects/LinearRegression_model.pkl')
+
+print('\n__________________ ANALYZE AND TEST YOUR SOLUTION __________________')
+print('SOLUTION: ' , best_model)
+store_model(best_model, model_name="SOLUION")   
+
+# 7.2 Analyse the SOLUTION to get more insights about the data
+# NOTE: ONLY for rand forest
+if type(best_model).__name__ == "RandomForestRegressor":
+    # Print features and importance score  (ONLY on rand forest)
+    feature_importances = best_model.feature_importances_
+    onehot_cols = []
+    for val_list in full_pipeline.transformer_list[1][1].named_steps['cat_encoder'].categories_: 
+        onehot_cols = onehot_cols + val_list.tolist()
+    feature_names = train_set.columns.tolist() + onehot_cols
+    for name in cat_feat_names:
+        feature_names.remove(name)
+    print('\nFeatures and importance score: ')
+    print(*sorted(zip( feature_names, feature_importances.round(decimals=4)), key = lambda row: row[1], reverse=True),sep='\n')
+
+# 7.3 Run on test data
+processed_test_set = full_pipeline.transform(test_set)  
+# 7.3.1 Compute R2 score and root mean squared error
+r2score, rmse = r2score_and_rmse(best_model, processed_test_set, test_set_labels)
+print('\nPerformance on test data:')
+print('R2 score (on test data, best=1):', r2score)
+print("Root Mean Square Error: ", rmse.round(decimals=1))
+# 7.3.2 Predict labels for some test instances
+print("\nTest data: \n", test_set.iloc[0:9])
+print("Predictions: ", best_model.predict(processed_test_set[0:9]).round(decimals=1))
+print("Labels:      ", list(test_set_labels[0:9]),'\n')
